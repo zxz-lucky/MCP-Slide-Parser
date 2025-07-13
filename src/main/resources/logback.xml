@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 注意：文件本身的编码必须是UTF-8（保存时选择UTF-8） -->
+<configuration debug="false">
+    <!-- 定义日志输出格式和编码 -->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- 控制台输出的编码器 -->
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <!-- 强制指定字符集为UTF-8 -->
+            <charset>UTF-8</charset>
+            <!-- 日志格式：时间 线程 级别 类名  消息 -->
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} -- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 定义日志级别（info及以上级别会被输出） -->
+    <root level="info">
+        <!-- 关联上面定义的控制台输出器 -->
+        <appender-ref ref="STDOUT" />
+    </root>
+</configuration>
