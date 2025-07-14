@@ -3,6 +3,7 @@ package com.zxz.mcp.mcpslideparser.converter;
 
 import com.zxz.mcp.mcpslideparser.model.Shape;
 import com.zxz.mcp.mcpslideparser.model.Style;
+import com.zxz.mcp.mcpslideparser.model.Table;
 import com.zxz.mcp.mcpslideparser.model.TextRun;
 
 /**
@@ -115,4 +116,119 @@ public class StyleMapper {
         
         return styleBuilder.toString();
     }
+
+
+    /**
+     * 映射图片样式
+     */
+    public String mapImageStyle(Style style, Shape shape) {
+        StringBuilder styleBuilder = new StringBuilder();
+
+        // 基础形状样式
+        styleBuilder.append(mapShapeStyle(style, shape));
+
+        if (style != null) {
+            // 图片特有样式
+            if (style.getAlignment() != null) {
+                styleBuilder.append("text-align:").append(style.getAlignment()).append(";");
+            }
+        }
+
+        return styleBuilder.toString();
+    }
+
+    /**
+     * 映射表格样式
+     */
+    public String mapTableStyle(Style style, Shape shape) {
+        StringBuilder styleBuilder = new StringBuilder();
+
+        // 基础形状样式
+        styleBuilder.append(mapShapeStyle(style, shape));
+
+        if (style != null) {
+            // 表格特有样式
+            if (style.getBackgroundColor() != null) {
+                styleBuilder.append("background-color:").append(style.getBackgroundColor()).append(";");
+            }
+        }
+
+        return styleBuilder.toString();
+    }
+
+    /**
+     * 映射表格单元格样式
+     */
+    public String mapTableCellStyle(Style style, Table.Cell cell) {
+        if (style == null) {
+            return "";
+        }
+
+        StringBuilder styleBuilder = new StringBuilder();
+
+        // 文本样式
+        if (style.getFontFamily() != null) {
+            styleBuilder.append("font-family:").append(style.getFontFamily()).append(";");
+        }
+
+        if (style.getFontSize() > 0) {
+            styleBuilder.append("font-size:").append(style.getFontSize()).append("px;");
+        }
+
+        if (style.getFontColor() != null) {
+            styleBuilder.append("color:").append(style.getFontColor()).append(";");
+        }
+
+        // 单元格特有样式
+        if (style.getFillColor() != null) {
+            styleBuilder.append("background-color:").append(style.getFillColor()).append(";");
+        }
+
+        if (style.getBorderColor() != null && style.getBorderWidth() > 0) {
+            styleBuilder.append("border:")
+                    .append(style.getBorderWidth()).append("px solid ")
+                    .append(style.getBorderColor()).append(";");
+        }
+
+        if (style.getAlignment() != null) {
+            styleBuilder.append("text-align:").append(style.getAlignment()).append(";");
+        }
+
+        return styleBuilder.toString();
+    }
+
+    /**
+     * 映射其他形状样式
+     */
+    public String mapGenericStyle(Style style, Shape shape) {
+        StringBuilder styleBuilder = new StringBuilder();
+
+        // 基础形状样式
+        styleBuilder.append(mapShapeStyle(style, shape));
+
+        if (style != null) {
+            // 其他形状特有样式
+            if (shape.getShapeType() != null && shape.getShapeType().contains("ARROW")) {
+                // 箭头形状特殊样式
+                if (style.getFillColor() != null) {
+                    styleBuilder.append("border-bottom-color:").append(style.getFillColor()).append(";");
+                }
+            } else {
+                // 默认其他形状样式
+                if (style.getFillColor() != null) {
+                    styleBuilder.append("background-color:").append(style.getFillColor()).append(";");
+                }
+            }
+
+            if (style.getBorderColor() != null && style.getBorderWidth() > 0) {
+                styleBuilder.append("border:")
+                        .append(style.getBorderWidth()).append("px solid ")
+                        .append(style.getBorderColor()).append(";");
+            }
+        }
+
+        return styleBuilder.toString();
+    }
+
+
 }

@@ -21,6 +21,15 @@ public class Shape {
     private double width;             // 宽度
     private double height;            // 高度
 
+    private byte[] imageData;         // 图片数据(针对图片形状)
+    private String imageType;         // 图片类型(针对图片形状)
+    private String name;              // 形状名称
+    private String shapeType;         // 具体形状类型(针对SHAPE类型)
+    private Table table;              // 表格数据(针对表格形状)
+
+    private String altText;       // 替代文本
+
+
     public Shape() {
         this.textRuns = new ArrayList<>();
     }
@@ -89,4 +98,54 @@ public class Shape {
     public void setHeight(double height) {
         this.height = height;
     }
+
+    public byte[] getImageData() {
+        return imageData;
+    }
+
+    public void setImageData(byte[] imageData) {
+        this.imageData = imageData;
+    }
+
+    public String getImageType() {
+        return imageType;
+    }
+
+    public void setImageType(String imageType) {
+        this.imageType = imageType;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getShapeType() {
+        return shapeType;
+    }
+
+    public void setShapeType(String shapeType) {
+        this.shapeType = shapeType;
+    }
+
+    public Table getTable() {
+        return table;
+    }
+
+    public void setTable(Table table) {
+        this.table = table;
+    }
+
+    public String getAltText() {
+        return altText;
+    }
+
+    public void setAltText(String altText) {
+        this.altText = altText;
+    }
+
+
 }

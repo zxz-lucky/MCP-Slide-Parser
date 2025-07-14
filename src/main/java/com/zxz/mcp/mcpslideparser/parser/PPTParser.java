@@ -3,6 +3,7 @@ package com.zxz.mcp.mcpslideparser.parser;
 import com.zxz.mcp.mcpslideparser.model.*;
 import com.zxz.mcp.mcpslideparser.model.Shape;
 import org.apache.poi.hslf.usermodel.*;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -115,15 +116,20 @@ public class PPTParser implements PowerPointParser {
         // 处理不同类型的形状
         if (hslfShape instanceof HSLFTextShape) {
             shape.setType(Shape.ShapeType.TEXT_BOX);
+            // 可添加文本处理逻辑
             processTextShape((HSLFTextShape) hslfShape, shape);
         } else if (hslfShape instanceof HSLFPictureShape) {
             shape.setType(Shape.ShapeType.IMAGE);
             // 可添加图片处理逻辑
+            processPictureShape((HSLFPictureShape) hslfShape, shape);
         } else if (hslfShape instanceof HSLFTable) {
             shape.setType(Shape.ShapeType.TABLE);
             // 可添加表格处理逻辑
+            processTableShape((HSLFTable) hslfShape, shape);
         } else {
             shape.setType(Shape.ShapeType.SHAPE);
+            // 可添加其他类型处理逻辑
+            processGenericShape(hslfShape, shape);
         }
 
         slide.addShape(shape);
@@ -206,6 +212,157 @@ public class PPTParser implements PowerPointParser {
             logger.error("处理文本形状时发生错误", e);
         }
     }
+
+
+    private void processPictureShape(HSLFPictureShape pictureShape, Shape shape) {
+        try {
+            // 获取图片数据
+            HSLFPictureData pictureData = pictureShape.getPictureData();
+            if (pictureData != null) {
+                // 设置图片数据
+                shape.setImageData(pictureData.getData());
+
+                // 设置图片类型
+                String contentType = pictureData.getContentType();
+                shape.setImageType(contentType != null ? contentType : "image/png");
+
+                // 设置图片尺寸
+                Dimension dimension = pictureShape.getPictureData().getImageDimension();
+                if (dimension != null) {
+                    shape.setWidth(dimension.getWidth());
+                    shape.setHeight(dimension.getHeight());
+                }
+
+                // 设置图片名称（如果有）
+                if (pictureShape.getShapeName() != null) {
+                    shape.setName(pictureShape.getShapeName());
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("处理图片形状时出错 (ID: {})", pictureShape.getShapeId(), e);
+        }
+    }
+
+    private void processTableShape(HSLFTable tableShape, Shape shape) {
+        try {
+            // 创建表格对象
+            Table table = new Table();
+            table.setRows(tableShape.getNumberOfRows());
+            table.setColumns(tableShape.getNumberOfColumns());
+
+            // 创建表格默认样式
+            Style tableStyle = new Style();
+
+            // 方法1：尝试通过表格中的第一个单元格获取样式
+            if (tableShape.getNumberOfRows() > 0 && tableShape.getNumberOfColumns() > 0) {
+                HSLFTableCell firstCell = tableShape.getCell(0, 0);
+                if (firstCell != null) {
+                    // 获取填充颜色
+                    if (firstCell.getFill() != null && firstCell.getFill().getForegroundColor() != null) {
+                        tableStyle.setFillColor(formatColorToHex(firstCell.getFill().getForegroundColor()));
+                    }
+
+                    // 获取边框颜色和宽度
+                    if (firstCell.getLineColor() != null) {
+                        tableStyle.setBorderColor(formatColorToHex(firstCell.getLineColor()));
+                        tableStyle.setBorderWidth(1); // HSLF中边框宽度通常为1
+                    }
+                }
+            }
+
+            // 方法2：如果第一种方法不可行，使用默认样式
+            if (tableStyle.getFillColor() == null) {
+                tableStyle.setFillColor("#FFFFFF"); // 默认白色填充
+            }
+            if (tableStyle.getBorderColor() == null) {
+                tableStyle.setBorderColor("#000000"); // 默认黑色边框
+                tableStyle.setBorderWidth(1); // 默认1px边框
+            }
+
+            shape.setStyle(tableStyle);
+
+            // 处理表格单元格
+            for (int i = 0; i < tableShape.getNumberOfRows(); i++) {
+                for (int j = 0; j < tableShape.getNumberOfColumns(); j++) {
+                    HSLFTableCell cell = tableShape.getCell(i, j);
+                    if (cell != null) {
+                        Table.Cell tableCell = new Table.Cell();
+                        tableCell.setRow(i);
+                        tableCell.setColumn(j);
+
+                        // 设置单元格文本内容
+                        StringBuilder cellText = new StringBuilder();
+                        for (HSLFTextParagraph paragraph : cell.getTextParagraphs()) {
+                            for (HSLFTextRun run : paragraph.getTextRuns()) {
+                                cellText.append(run.getRawText());
+                            }
+                        }
+                        tableCell.setText(cellText.toString());
+
+                        // 设置单元格样式
+                        Style cellStyle = new Style();
+                        if (cell.getFill() != null && cell.getFill().getForegroundColor() != null) {
+                            cellStyle.setFillColor(formatColorToHex(cell.getFill().getForegroundColor()));
+                        } else {
+                            cellStyle.setFillColor(tableStyle.getFillColor()); // 继承表格样式
+                        }
+
+                        if (cell.getLineColor() != null) {
+                            cellStyle.setBorderColor(formatColorToHex(cell.getLineColor()));
+                            cellStyle.setBorderWidth(1);
+                        } else {
+                            cellStyle.setBorderColor(tableStyle.getBorderColor());
+                            cellStyle.setBorderWidth(tableStyle.getBorderWidth());
+                        }
+
+                        tableCell.setStyle(cellStyle);
+                        table.addCell(tableCell);
+                    }
+                }
+            }
+
+            shape.setTable(table);
+        } catch (Exception e) {
+            logger.warn("处理表格形状时出错 (ID: {})", tableShape.getShapeId(), e);
+        }
+    }
+
+    private void processGenericShape(HSLFShape genericShape, Shape shape) {
+        try {
+            // 设置形状名称
+            if (genericShape.getShapeName() != null) {
+                shape.setName(genericShape.getShapeName());
+            }
+
+            // 对于AutoShape可以获取具体形状类型
+            if (genericShape instanceof HSLFAutoShape) {
+                HSLFAutoShape autoShape = (HSLFAutoShape) genericShape;
+                shape.setShapeType(autoShape.getShapeType().name());
+            }
+
+            // 设置形状样式
+            if (genericShape instanceof HSLFSimpleShape) {
+                HSLFSimpleShape simpleShape = (HSLFSimpleShape) genericShape;
+                Style shapeStyle = new Style();
+
+                if (simpleShape.getFillColor() != null) {
+                    shapeStyle.setFillColor(formatColorToHex(simpleShape.getFillColor()));
+                }
+
+                if (simpleShape.getLineColor() != null) {
+                    shapeStyle.setBorderColor(formatColorToHex(simpleShape.getLineColor()));
+                    shapeStyle.setBorderWidth((int) simpleShape.getLineWidth());
+                }
+
+                shape.setStyle(shapeStyle);
+            }
+        } catch (Exception e) {
+            logger.warn("处理通用形状时出错 (ID: {})", genericShape.getShapeId(), e);
+        }
+    }
+
+
+
     private TextRun createTextRunFromHSLF(HSLFTextRun hslfRun) {
         TextRun textRun = new TextRun();
         textRun.setText(hslfRun.getRawText() != null ? hslfRun.getRawText() : "");

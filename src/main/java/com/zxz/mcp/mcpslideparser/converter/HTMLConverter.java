@@ -3,10 +3,12 @@ package com.zxz.mcp.mcpslideparser.converter;
 
 import com.zxz.mcp.mcpslideparser.model.Shape;
 import com.zxz.mcp.mcpslideparser.model.Slide;
+import com.zxz.mcp.mcpslideparser.model.Table;
 import com.zxz.mcp.mcpslideparser.model.TextRun;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -116,16 +118,22 @@ public class HTMLConverter {
             shape.getId(),
             styleMapper.mapShapeStyle(shape.getStyle(), shape)
         ));
-        
-        // 处理文本形状
-        if (shape.getType() == Shape.ShapeType.TEXT_BOX) {
-            for (TextRun textRun : shape.getTextRuns()) {
-                shapeBuilder.append(convertTextRunToHTML(textRun));
-            }
-        } else if (shape.getType() == Shape.ShapeType.IMAGE) {
-            shapeBuilder.append("        [Image Content]\n");
-        } else if (shape.getType() == Shape.ShapeType.TABLE) {
-            shapeBuilder.append("        [Table Content]\n");
+
+
+        switch (shape.getType()) {
+            case TEXT_BOX:
+                for (TextRun textRun : shape.getTextRuns()) {
+                    shapeBuilder.append(convertTextRunToHTML(textRun));
+                }
+                break;
+            case IMAGE:
+                shapeBuilder.append(convertImageToHTML(shape));
+                break;
+            case TABLE:
+                shapeBuilder.append(convertTableToHTML(shape));
+                break;
+            default:
+                shapeBuilder.append(convertGenericToHTML(shape));
         }
         
         shapeBuilder.append("</div>\n");
@@ -157,7 +165,109 @@ public class HTMLConverter {
         
         return runBuilder.toString();
     }
-    
+
+
+
+    /**
+     * 转换图片为HTML
+     */
+    private String convertImageToHTML(Shape shape) {
+        StringBuilder imageBuilder = new StringBuilder();
+
+        if (shape.getImageData() != null) {
+            // 将图片数据转换为Base64编码
+            String base64Image = Base64.getEncoder().encodeToString(shape.getImageData());
+            String imageType = shape.getImageType() != null ?
+                    shape.getImageType().replace("image/", "") : "png";
+
+            imageBuilder.append(String.format(
+                    "<img src=\"data:image/%s;base64,%s\" alt=\"%s\" style=\"%s\" />\n",
+                    imageType,
+                    base64Image,
+                    escapeHTML(shape.getAltText() != null ? shape.getAltText() : ""),
+                    styleMapper.mapImageStyle(shape.getStyle(), shape)
+            ));
+        } else {
+            imageBuilder.append(String.format(
+                    "<div class=\"image-placeholder\" style=\"%s\">[Image: %s]</div>\n",
+                    styleMapper.mapImageStyle(shape.getStyle(), shape),
+                    escapeHTML(shape.getName() != null ? shape.getName() : "")
+            ));
+        }
+
+        return imageBuilder.toString();
+    }
+
+
+    /**
+     * 转换表格为HTML
+     */
+    private String convertTableToHTML(Shape shape) {
+        StringBuilder tableBuilder = new StringBuilder();
+
+        if (shape.getTable() != null) {
+            Table table = shape.getTable();
+            tableBuilder.append(String.format(
+                    "<table class=\"table-container\" style=\"%s\">\n",
+                    styleMapper.mapTableStyle(shape.getStyle(), shape)
+            ));
+
+            // 创建表格行
+            for (int i = 0; i < table.getRows(); i++) {
+                tableBuilder.append("<tr>\n");
+
+                // 创建表格单元格
+                for (int j = 0; j < table.getColumns(); j++) {
+                    Table.Cell cell = findTableCell(table, i, j);
+                    if (cell != null) {
+                        tableBuilder.append(String.format(
+                                "<td class=\"table-cell\" style=\"%s\">%s</td>\n",
+                                styleMapper.mapTableCellStyle(cell.getStyle(), cell),
+                                escapeHTML(cell.getText() != null ? cell.getText() : "")
+                        ));
+                    } else {
+                        // 空单元格
+                        tableBuilder.append("<td class=\"table-cell\">&nbsp;</td>\n");
+                    }
+                }
+
+                tableBuilder.append("</tr>\n");
+            }
+
+            tableBuilder.append("</table>\n");
+        } else {
+            tableBuilder.append("<div class=\"table-placeholder\">[Table Content]</div>\n");
+        }
+
+        return tableBuilder.toString();
+    }
+
+    /**
+     * 转换其他形状为HTML
+     */
+    private String convertGenericToHTML(Shape shape) {
+        StringBuilder shapeHtml = new StringBuilder();
+
+        // 根据形状类型添加不同的HTML
+        if (shape.getShapeType() != null && shape.getShapeType().contains("ARROW")) {
+            // 箭头形状特殊处理
+            shapeHtml.append(String.format(
+                    "<div class=\"arrow-shape\" style=\"%s\"></div>\n",
+                    styleMapper.mapGenericStyle(shape.getStyle(), shape)
+            ));
+        } else {
+            // 默认其他形状
+            shapeHtml.append(String.format(
+                    "<div class=\"other-shape\" style=\"%s\">%s</div>\n",
+                    styleMapper.mapGenericStyle(shape.getStyle(), shape),
+                    escapeHTML(shape.getName() != null ? shape.getName() : "")
+            ));
+        }
+
+        return shapeHtml.toString();
+    }
+
+
     /**
      * 转义 HTML特殊字符
      * @param text 原始文本
@@ -175,4 +285,18 @@ public class HTMLConverter {
                   .replace("'", "&#39;")
                   .replace("\n", "<br>");
     }
+
+
+    /**
+     * 辅助方法：查找表格中指定位置的单元格
+     */
+    private Table.Cell findTableCell(Table table, int row, int column) {
+        for (Table.Cell cell : table.getCells()) {
+            if (cell.getRow() == row && cell.getColumn() == column) {
+                return cell;
+            }
+        }
+        return null;
+    }
+
 }
