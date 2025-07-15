@@ -132,6 +132,10 @@
 		</dependency>
 
 
+<!-- Windows 控制台 UTF-8 输出-->
+<!--		chcp 65001-->
+
+
 
 
 		<!-- Logging -->

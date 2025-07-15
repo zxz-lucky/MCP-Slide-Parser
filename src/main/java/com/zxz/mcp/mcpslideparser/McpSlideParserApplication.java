@@ -47,6 +47,7 @@ public class McpSlideParserApplication {
             List<Slide> slides = parser.parse(inputFile);   //解析 PPT文件
             logger.info("Successfully parsed {} slides", slides.size());    //记录成功解析的幻灯片数量
 
+
             // 4. 转换为HTML
             HTMLConverter converter = new HTMLConverter();
             String html = converter.convertToHTML(slides);  //将幻灯片列表转换为完整 HTML文档

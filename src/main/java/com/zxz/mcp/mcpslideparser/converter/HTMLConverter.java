@@ -36,20 +36,31 @@ public class HTMLConverter {
         
         // HTML 头部
         htmlBuilder.append("<!DOCTYPE html>\n")
-                  .append("<html>\n")
-                  .append("<head>\n")
-                  .append("    <meta charset=\"UTF-8\">\n")
-                  .append("    <title>PPT to HTML Conversion</title>\n")
-                  .append("    <style>\n")
-                  .append("        .slide { margin-bottom: 50px; border: 1px solid #ddd; padding: 20px; position: relative; min-height: 500px; }\n")
-                  .append("        .slide-title { font-size: 24px; margin-bottom: 20px; }\n")
-                  .append("        .shape { position: absolute; }\n")
-                  .append("        .text-run { white-space: pre-wrap; }\n")
-                  .append("        .slide-notes { margin-top: 20px; padding: 10px; background-color: #f5f5f5; }\n")
-                  .append(styleMapper.getGlobalCSS())
-                  .append("    </style>\n")
-                  .append("</head>\n")
-                  .append("<body>\n");
+                .append("<html>\n")
+                .append("<head>\n")
+                .append("    <meta charset=\"UTF-8\">\n")
+                .append("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
+                .append("    <title>PPT to HTML Conversion</title>\n")
+                .append("    <style>\n")
+                .append("        body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; }\n")
+                .append("        .slide-container { max-width: 900px; margin: 0 auto; padding: 20px; }\n")
+                .append("        .slide { background: white; margin-bottom: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }\n")
+                .append("        .slide-content { padding: 25px; }\n")
+                .append("        .slide-title { font-size: 28px; margin: 0 0 20px 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }\n")
+                .append("        .shape { margin: 15px 0; }\n")
+                .append("        .text-run { white-space: pre-wrap; margin: 5px 0; }\n")
+                .append("        .slide-notes { background: #f8f9fa; padding: 15px; margin-top: 20px; font-size: 14px; color: #666; }\n")
+                .append("        ul, ol { padding-left: 25px; margin: 10px 0; }\n")
+                .append("        li { margin-bottom: 8px; }\n")
+                .append("        table { width: 100%; border-collapse: collapse; margin: 15px 0; }\n")
+                .append("        th, td { padding: 12px; text-align: left; border: 1px solid #ddd; }\n")
+                .append("        th { background-color: #f2f2f2; }\n")
+                .append("        img { max-width: 100%; height: auto; display: block; }\n")
+                .append(styleMapper.getGlobalCSS())
+                .append("    </style>\n")
+                .append("</head>\n")
+                .append("<body>\n")
+                .append("<div class=\"slide-container\">\n");
         
         // 幻灯片内容
         for (Slide slide : slides) {
@@ -71,37 +82,58 @@ public class HTMLConverter {
      */
     private String convertSlideToHTML(Slide slide) {
         StringBuilder slideBuilder = new StringBuilder();
-        
-        // 幻灯片容器
+
+        // 幻灯片容器 - 添加横向布局容器
         slideBuilder.append(String.format(
-            "<div class=\"slide\" id=\"slide-%d\" style=\"%s\">\n",
-            slide.getSlideNumber(),
-            styleMapper.mapSlideStyle(slide.getBackgroundStyle())
+                "<div class=\"slide\" id=\"slide-%d\" style=\"%s\">\n",
+                slide.getSlideNumber(),
+                styleMapper.mapSlideStyle(slide.getBackgroundStyle())
         ));
-        
-        // 幻灯片标题
-        slideBuilder.append(String.format(
-            "    <h1 class=\"slide-title\">%s</h1>\n",
-            escapeHTML(slide.getTitle())
-        ));
-        
-        // 幻灯片形状
+
+        // 添加横向布局容器
+        slideBuilder.append("    <div class=\"slide-layout-container\">\n");
+
+        // 标题处理
+        String title = slide.getTitle();
+        if (title != null && !title.trim().isEmpty()) {
+            int headerLevel = detectHeaderLevel(title);
+            slideBuilder.append(String.format(
+                    "        <h%d class=\"slide-title\">%s</h%d>\n",
+                    headerLevel,
+                    escapeHTML(title),
+                    headerLevel
+            ));
+        }
+
+        // 形状处理 - 保持原有位置
         for (Shape shape : slide.getShapes()) {
             slideBuilder.append(convertShapeToHTML(shape));
         }
-        
-        // 幻灯片备注
+
+        slideBuilder.append("    </div>\n"); // 结束横向布局容器
+
+        // 备注处理
         if (slide.getNotes() != null && !slide.getNotes().isEmpty()) {
             slideBuilder.append("    <div class=\"slide-notes\">\n")
-                      .append("        <h3>Notes:</h3>\n")
-                      .append("        <p>").append(escapeHTML(slide.getNotes())).append("</p>\n")
-                      .append("    </div>\n");
+                    .append("        <h4>Notes:</h4>\n")
+                    .append("        <p>").append(escapeHTML(slide.getNotes().replace("\n", "<br>"))).append("</p>\n")
+                    .append("    </div>\n");
         }
-        
+
         slideBuilder.append("</div>\n");
-        
         return slideBuilder.toString();
     }
+
+
+    // 新增方法：检测标题层级
+    private int detectHeaderLevel(String title) {
+        if (title.startsWith("# ")) return 1;
+        if (title.startsWith("## ")) return 2;
+        if (title.startsWith("### ")) return 3;
+        if (title.startsWith("#### ")) return 4;
+        return 2; // 默认h2
+    }
+
     
     /**
      * 将形状转换为 HTML片段
@@ -110,15 +142,14 @@ public class HTMLConverter {
      */
     private String convertShapeToHTML(Shape shape) {
         StringBuilder shapeBuilder = new StringBuilder();
-        
-        // 形状容器
-        shapeBuilder.append(String.format(
-            "<div class=\"shape shape-%s\" id=\"shape-%s\" style=\"%s\">\n",
-            shape.getType().name().toLowerCase(),
-            shape.getId(),
-            styleMapper.mapShapeStyle(shape.getStyle(), shape)
-        ));
 
+        // 使用绝对定位保持原有位置
+        shapeBuilder.append(String.format(
+                "<div class=\"shape shape-%s\" id=\"shape-%s\" style=\"%s\">\n",
+                shape.getType().name().toLowerCase(),
+                shape.getId(),
+                styleMapper.mapShapeStyle(shape.getStyle(), shape)
+        ));
 
         switch (shape.getType()) {
             case TEXT_BOX:
@@ -135,9 +166,9 @@ public class HTMLConverter {
             default:
                 shapeBuilder.append(convertGenericToHTML(shape));
         }
-        
+
         shapeBuilder.append("</div>\n");
-        
+
         return shapeBuilder.toString();
     }
     
@@ -148,24 +179,35 @@ public class HTMLConverter {
      */
     private String convertTextRunToHTML(TextRun textRun) {
         StringBuilder runBuilder = new StringBuilder();
-        
+
         String tag = "span";
         if (textRun.getHyperlink() != null) {
             tag = "a";
         }
-        
-        runBuilder.append(String.format(
-            "<%s class=\"text-run\" style=\"%s\"%s>%s</%s>\n",
-            tag,
-            styleMapper.mapTextStyle(textRun.getStyle(), textRun),
-            textRun.getHyperlink() != null ? " href=\"" + escapeHTML(textRun.getHyperlink()) + "\"" : "",
-            escapeHTML(textRun.getText()),
-            tag
-        ));
-        
+
+        // 检测是否是列表项
+        boolean isListItem = textRun.getText() != null &&
+                (textRun.getText().startsWith("- ") ||
+                        textRun.getText().matches("^\\d+\\.\\s.+"));
+
+        if (isListItem) {
+            runBuilder.append("<li class=\"ppt-list-item\" style=\"")
+                    .append(styleMapper.mapTextStyle(textRun.getStyle(), textRun))
+                    .append("\">")
+                    .append(escapeHTML(textRun.getText().replaceFirst("^[-\\d]+\\.?\\s+", "")));
+        } else {
+            runBuilder.append(String.format(
+                    "<%s class=\"text-run\" style=\"%s\"%s>%s</%s>",
+                    tag,
+                    styleMapper.mapTextStyle(textRun.getStyle(), textRun),
+                    textRun.getHyperlink() != null ? " href=\"" + escapeHTML(textRun.getHyperlink()) + "\"" : "",
+                    escapeHTML(textRun.getText()),
+                    tag
+            ));
+        }
+
         return runBuilder.toString();
     }
-
 
 
     /**
@@ -175,13 +217,12 @@ public class HTMLConverter {
         StringBuilder imageBuilder = new StringBuilder();
 
         if (shape.getImageData() != null) {
-            // 将图片数据转换为Base64编码
             String base64Image = Base64.getEncoder().encodeToString(shape.getImageData());
             String imageType = shape.getImageType() != null ?
                     shape.getImageType().replace("image/", "") : "png";
 
             imageBuilder.append(String.format(
-                    "<img src=\"data:image/%s;base64,%s\" alt=\"%s\" style=\"%s\" />\n",
+                    "<img src=\"data:image/%s;base64,%s\" alt=\"%s\" class=\"ppt-image\" style=\"%s\" />",
                     imageType,
                     base64Image,
                     escapeHTML(shape.getAltText() != null ? shape.getAltText() : ""),
@@ -189,9 +230,8 @@ public class HTMLConverter {
             ));
         } else {
             imageBuilder.append(String.format(
-                    "<div class=\"image-placeholder\" style=\"%s\">[Image: %s]</div>\n",
-                    styleMapper.mapImageStyle(shape.getStyle(), shape),
-                    escapeHTML(shape.getName() != null ? shape.getName() : "")
+                    "<div class=\"image-placeholder\" style=\"%s\">[Image]</div>",
+                    styleMapper.mapImageStyle(shape.getStyle(), shape)
             ));
         }
 
@@ -207,31 +247,65 @@ public class HTMLConverter {
 
         if (shape.getTable() != null) {
             Table table = shape.getTable();
-            tableBuilder.append(String.format(
-                    "<table class=\"table-container\" style=\"%s\">\n",
-                    styleMapper.mapTableStyle(shape.getStyle(), shape)
-            ));
+            tableBuilder.append("<table>\n");
 
-            // 创建表格行
-            for (int i = 0; i < table.getRows(); i++) {
-                tableBuilder.append("<tr>\n");
-
-                // 创建表格单元格
-                for (int j = 0; j < table.getColumns(); j++) {
-                    Table.Cell cell = findTableCell(table, i, j);
-                    if (cell != null) {
-                        tableBuilder.append(String.format(
-                                "<td class=\"table-cell\" style=\"%s\">%s</td>\n",
-                                styleMapper.mapTableCellStyle(cell.getStyle(), cell),
-                                escapeHTML(cell.getText() != null ? cell.getText() : "")
-                        ));
-                    } else {
-                        // 空单元格
-                        tableBuilder.append("<td class=\"table-cell\">&nbsp;</td>\n");
+            // 表头处理
+            boolean hasHeader = false;
+            // 检查第一行是否有特殊样式可以作为表头
+            if (table.getRows() > 0) {
+                for (int i = 0; i < table.getColumns(); i++) {
+                    Table.Cell cell = findTableCell(table, 0, i);
+                    if (cell != null && (cell.getStyle() != null && cell.getStyle().getFillColor() != null)) {
+                        hasHeader = true;
+                        break;
                     }
                 }
+            }
 
-                tableBuilder.append("</tr>\n");
+            if (hasHeader) {
+                tableBuilder.append("<thead><tr>\n");
+                for (int i = 0; i < table.getColumns(); i++) {
+                    Table.Cell cell = findTableCell(table, 0, i);
+                    if (cell != null) {
+                        tableBuilder.append("<th style=\"").append(styleMapper.mapTableCellStyle(cell.getStyle(), cell))
+                                .append("\">").append(escapeHTML(cell.getText())).append("</th>\n");
+                    } else {
+                        tableBuilder.append("<th>&nbsp;</th>\n");
+                    }
+                }
+                tableBuilder.append("</tr></thead>\n<tbody>\n");
+
+                // 数据行从第二行开始
+                for (int i = 1; i < table.getRows(); i++) {
+                    tableBuilder.append("<tr>\n");
+                    for (int j = 0; j < table.getColumns(); j++) {
+                        Table.Cell cell = findTableCell(table, i, j);
+                        if (cell != null) {
+                            tableBuilder.append("<td style=\"").append(styleMapper.mapTableCellStyle(cell.getStyle(), cell))
+                                    .append("\">").append(escapeHTML(cell.getText())).append("</td>\n");
+                        } else {
+                            tableBuilder.append("<td>&nbsp;</td>\n");
+                        }
+                    }
+                    tableBuilder.append("</tr>\n");
+                }
+                tableBuilder.append("</tbody>\n");
+            } else {
+                tableBuilder.append("<tbody>\n");
+                for (int i = 0; i < table.getRows(); i++) {
+                    tableBuilder.append("<tr>\n");
+                    for (int j = 0; j < table.getColumns(); j++) {
+                        Table.Cell cell = findTableCell(table, i, j);
+                        if (cell != null) {
+                            tableBuilder.append("<td style=\"").append(styleMapper.mapTableCellStyle(cell.getStyle(), cell))
+                                    .append("\">").append(escapeHTML(cell.getText())).append("</td>\n");
+                        } else {
+                            tableBuilder.append("<td>&nbsp;</td>\n");
+                        }
+                    }
+                    tableBuilder.append("</tr>\n");
+                }
+                tableBuilder.append("</tbody>\n");
             }
 
             tableBuilder.append("</table>\n");
@@ -248,21 +322,32 @@ public class HTMLConverter {
     private String convertGenericToHTML(Shape shape) {
         StringBuilder shapeHtml = new StringBuilder();
 
-        // 根据形状类型添加不同的HTML
-        if (shape.getShapeType() != null && shape.getShapeType().contains("ARROW")) {
-            // 箭头形状特殊处理
-            shapeHtml.append(String.format(
-                    "<div class=\"arrow-shape\" style=\"%s\"></div>\n",
-                    styleMapper.mapGenericStyle(shape.getStyle(), shape)
-            ));
-        } else {
-            // 默认其他形状
-            shapeHtml.append(String.format(
-                    "<div class=\"other-shape\" style=\"%s\">%s</div>\n",
-                    styleMapper.mapGenericStyle(shape.getStyle(), shape),
-                    escapeHTML(shape.getName() != null ? shape.getName() : "")
-            ));
+        String shapeClass = "generic-shape";
+        if (shape.getShapeType() != null) {
+            shapeClass = shape.getShapeType().toLowerCase().replace("_", "-") + "-shape";
         }
+
+        shapeHtml.append("<div class=\"shape-container\">\n")
+                .append(String.format(
+                        "    <div class=\"%s\" style=\"%s\">\n",
+                        shapeClass,
+                        styleMapper.mapGenericStyle(shape.getStyle(), shape)
+                ));
+
+        // 形状内容
+        if (shape.getName() != null && !shape.getName().isEmpty()) {
+            shapeHtml.append("        <div class=\"shape-label\">")
+                    .append(escapeHTML(shape.getName()))
+                    .append("</div>\n");
+        }
+
+        // 特殊形状处理
+        if (shape.getShapeType() != null && shape.getShapeType().contains("ARROW")) {
+            shapeHtml.append("        <div class=\"arrow-head\"></div>\n");
+        }
+
+        shapeHtml.append("    </div>\n")
+                .append("</div>\n");
 
         return shapeHtml.toString();
     }

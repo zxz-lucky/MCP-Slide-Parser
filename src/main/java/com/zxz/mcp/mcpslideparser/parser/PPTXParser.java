@@ -2,9 +2,6 @@ package com.zxz.mcp.mcpslideparser.parser;
 
 import com.zxz.mcp.mcpslideparser.model.Shape;
 import com.zxz.mcp.mcpslideparser.model.*;
-import org.apache.poi.hslf.usermodel.HSLFAutoShape;
-import org.apache.poi.hslf.usermodel.HSLFShape;
-import org.apache.poi.hslf.usermodel.HSLFSimpleShape;
 import org.apache.poi.openxml4j.exceptions.OpenXML4JException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.sl.usermodel.PaintStyle;
@@ -52,6 +49,13 @@ public class PPTXParser implements PowerPointParser {
                 Style backgroundStyle = new Style();
                 XSLFBackground background = xslfSlide.getBackground();
                 if (background != null && background.getFillColor() != null) {
+
+                    // 新增：检查是否为纯色背景
+                    if (xslfSlide.getBackground().getFillStyle().getPaint() instanceof Color) {
+                        Color bgColor = (Color) xslfSlide.getBackground().getFillStyle().getPaint();
+                        backgroundStyle.setBackgroundColor(formatColorToHex(bgColor));
+                    }
+
                     backgroundStyle.setBackgroundColor(String.format("#%06X", (0xFFFFFF & background.getFillColor().getRGB())));
                 }
                 slide.setBackgroundStyle(backgroundStyle);
